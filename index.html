@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-mode="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,10 +10,11 @@
     />
     <script>
       // Applying the stored colour mode before first paint, so the page
-      // never flashes the other one.
+      // never flashes the other one. Light is the default; only an
+      // explicit dark choice marks the root.
       try {
-        if (localStorage.getItem("conseqa-playground-theme") === "light") {
-          document.documentElement.removeAttribute("data-mode");
+        if (localStorage.getItem("conseqa-playground-theme") === "dark") {
+          document.documentElement.setAttribute("data-mode", "dark");
         }
       } catch {}
     </script>

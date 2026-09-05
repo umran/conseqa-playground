@@ -14,9 +14,9 @@ const listeners = new Set<() => void>();
 
 function read(): Theme {
   try {
-    return window.localStorage.getItem(KEY) === "light" ? "light" : "dark";
+    return window.localStorage.getItem(KEY) === "dark" ? "dark" : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 
@@ -36,7 +36,7 @@ function subscribe(listener: () => void) {
 }
 
 export function useTheme(): [Theme, (next: Theme) => void] {
-  const theme = useSyncExternalStore(subscribe, read, () => "dark" as Theme);
+  const theme = useSyncExternalStore(subscribe, read, () => "light" as Theme);
 
   useEffect(() => {
     apply(theme);

@@ -27,6 +27,7 @@ import { YamlEditor, type YamlEditorHandle } from "../editor/YamlEditor";
 import { lintDiagnostics } from "../editor/lint";
 import { offsetOf } from "../editor/locate";
 import { VizPane } from "../viz/VizPane";
+import { syncDocsAssistant } from "./assistant";
 import { CatalogDialog } from "./CatalogDialog";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { PanelResizeHandle } from "./PanelResizeHandle";
@@ -81,6 +82,12 @@ export function Workspace() {
   useEffect(() => {
     writeStored(PANEL_OPEN_KEY, String(panelOpen));
   }, [panelOpen]);
+
+  // The docs assistant floats over the workspace and follows the page's
+  // colour mode; booted from an effect so it never gates first paint.
+  useEffect(() => {
+    syncDocsAssistant(theme);
+  }, [theme]);
 
   const dismissDocsPrompt = useCallback(() => {
     setDocsPrompt(false);
@@ -276,10 +283,10 @@ export function Workspace() {
           />
 
           <Tooltip
-            content="What every declaration means, and what the checker proves — on the docs site"
+            content="What every declaration means, and what the checker proves — the conseqa docs"
             render={
               <Button variant="ghost" size="sm" icon={BookOpenTextIcon} className="shrink-0" onClick={openDocs}>
-                <span className="hidden md:inline">Semantics</span>
+                <span className="hidden md:inline">Docs</span>
               </Button>
             }
           />
@@ -328,7 +335,7 @@ export function Workspace() {
           <Banner
             size="sm"
             icon={<BookOpenTextIcon weight="fill" />}
-            description="New to Conseqa? Read the semantics."
+            description="New to Conseqa? Read the docs."
             action={
               <>
                 <Banner.Action onClick={openDocs}>Open</Banner.Action>
