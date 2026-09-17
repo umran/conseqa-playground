@@ -1,13 +1,8 @@
+dsl: 4
 revision: 1
-
 services: {}
-
 schemas: {}
-
 data_models: {}
-
 topics: {}
-
 state_machines: {}
-
 operations: {}

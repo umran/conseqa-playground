@@ -6,7 +6,7 @@ import { CheckIcon, XIcon } from "@phosphor-icons/react";
 import { CATALOG, type CatalogEntry } from "../catalog";
 
 const OUTCOME: Record<CatalogEntry["expect"], { label: string; variant: "success" | "warning" | "neutral" }> = {
-  proven: { label: "every verifiable obligation proven", variant: "success" },
+  proven: { label: "every obligation proven", variant: "success" },
   unknown: { label: "some obligations unknown", variant: "warning" },
   blank: { label: "nothing declared yet", variant: "neutral" },
 };

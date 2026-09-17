@@ -3,8 +3,9 @@
 A browser demonstration of [conseqa](https://github.com/umran/conseqa):
 a catalog of worked example models, a live YAML editor, and the model
 checker's verdicts overlaid on the interactive visualization — with no
-server involved. Parsing, validation, verification, and graph extraction
-all run in WebAssembly compiled from the conseqa source; the build
+server involved. Parsing, validation, verification, and the graph and
+transaction-proof extraction all run in WebAssembly compiled from the
+conseqa source; the build
 output is a static directory that any file host can serve. The DSL's
 semantics are documented at
 [docs.conseqa.umran.ca](https://docs.conseqa.umran.ca), which the
@@ -37,7 +38,7 @@ Every keystroke, debounced, runs the same pipeline the `conseqa` and
 | parse | `conseqa::parser::yaml` deserializes the source | the error's line and column, marked in the editor |
 | validate | `conseqa::analyzer::validate` checks ids and references | structural errors, each clickable to its declaration |
 | verify | `conseqa::analyzer::verification` runs the model checker | the obligation report: proven, unknown, disproven |
-| extract | `conseqa-viz`'s graph extractor resolves the DSL's indirections | the system graph, operation programs, state machines |
+| extract | `conseqa::viz` derives the graph and the transaction proofs | the system graph, the navigator's entity pages, the proof drawings |
 
 Verification is attempted only over a valid model, exactly as the CLI
 does — verdicts are meaningful only over a structurally coherent model.
@@ -48,7 +49,8 @@ attempts that family. It is never evidence of a violation.
 The parser takes the DSL's shorthand as readily as its canonical form —
 `order_id: uuid` for a field, `customer.id` for a path,
 `input:input.create_order.request` for a value source, a bare schema id
-for an error contract — which is how the catalogue's models are written.
+for an error class's contract — which is how the catalogue's models are
+written.
 Shorthand exists on input only: serialization emits the canonical form,
 so the editor's format button expands it. Which declarations may be
 compressed, and why the rest may not, is the semantics document's
@@ -92,9 +94,13 @@ The WebAssembly module exposes two functions. `analyze(source, title,
 verify)` returns the page data plus the diagnostics the CLIs print to
 stderr; `canonicalize(source)` returns the model as conseqa serializes
 it — canonical throughout, so shorthand comes back expanded — behind
-the editor's format button. `wasm/src/lib.rs` includes conseqa-viz's
-own `graph.rs` by path rather than copying it, so the graph the browser
-draws is the graph the CLI draws.
+the editor's format button. The graph and transaction-proof extractors
+come from `conseqa::viz`, the same library module the CLI renders
+with, so what the browser draws is what the CLI draws. The crate is
+built with conseqa's default `confluence` feature off: that feature is
+the agent-workspace server stack, which neither compiles to wasm32 nor
+belongs in a browser, and the lean build is exactly the parser,
+analyzer, spec, and viz modules.
 
 Analysis runs in a Web Worker. Requests are latest-wins: a burst of
 keystrokes costs at most one extra run, and a worker lost to a panic is
@@ -160,7 +166,5 @@ locally.
 ## Tests
 
 `npm run test:wasm` runs the WebAssembly crate's tests natively:
-end-to-end analysis of the worked examples, parse-error locations, and
-the refusal to verify an invalid model — plus conseqa-viz's own
-graph-extraction tests, which come along with the module included by
-path and run against the vendored fixtures.
+end-to-end analysis of the worked examples, parse-error locations, the
+DSL-version refusal, and the refusal to verify an invalid model.

@@ -1,9 +1,11 @@
 // Where a model id lives in the YAML source.
 //
-// Analyzer diagnostics name model entities, not source positions. Ids
-// are declared as mapping keys, so the declaring line is found by
-// searching for the id in key position; references fall back to the
-// first whole-word occurrence.
+// Analyzer diagnostics name model entities, not source positions. Most
+// ids are declared as mapping keys; program-level ids — a transaction's
+// `id:`, a step's `bind:`, an effect's `effect_id:` — are declared as
+// the value of those keys instead. The declaring line is found by
+// trying key position, then declaring-value position; references fall
+// back to the first whole-word occurrence, wherever it is.
 
 export interface SourceRange {
   from: number;
@@ -21,6 +23,16 @@ export function locateId(source: string, id: string): SourceRange | null {
   const keyMatch = asKey.exec(source);
   if (keyMatch && keyMatch.index !== undefined) {
     const from = keyMatch.index + keyMatch[0].indexOf(keyMatch[2]);
+    return { from, to: from + id.length, line: lineAt(source, from) };
+  }
+
+  const asDeclaringValue = new RegExp(
+    `^[ \\t]*(?:-[ \\t]+)?(?:id|bind|effect_id)[ \\t]*:[ \\t]*(["']?)(${needle})\\1[ \\t]*$`,
+    "m",
+  );
+  const valueMatch = asDeclaringValue.exec(source);
+  if (valueMatch && valueMatch.index !== undefined) {
+    const from = valueMatch.index + valueMatch[0].indexOf(valueMatch[2]);
     return { from, to: from + id.length, line: lineAt(source, from) };
   }
 
