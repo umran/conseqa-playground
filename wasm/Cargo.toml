@@ -10,8 +10,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # The conseqa source itself, vendored as a git submodule. The parser,
-# validator, model checker, and report builder are used unchanged.
-conseqa = { path = "../vendor/conseqa" }
+# validator, model checker, report builder, and viz extractors are used
+# unchanged. Default features off: they pull in the confluence server
+# stack (tokio, axum, redb), which neither compiles to wasm32 nor
+# belongs in the browser — the lean checker is the whole point here.
+conseqa = { path = "../vendor/conseqa", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Same YAML crate conseqa uses, needed to read error locations.

@@ -3,22 +3,22 @@
 //! One entry point, `analyze`, runs the whole `conseqa` / `conseqa-viz`
 //! pipeline in-process: parse the YAML source, validate, verify the
 //! declared requirements with the model checker, build the obligation
-//! report, and extract the system graph the visualization renders. It
-//! returns the same page data `conseqa-viz --json` emits — title,
-//! model, graph, report — alongside the diagnostics the CLIs print to
-//! stderr, so the web app can show them inline.
+//! report, and extract the system graph and transaction proofs the
+//! visualization renders. It returns the same page data `conseqa-viz
+//! --json` emits — title, model, graph, transaction proofs, report —
+//! alongside the diagnostics the CLIs print to stderr, so the web app
+//! can show them inline.
 //!
-//! `graph.rs` is conseqa-viz's own extractor, included by path from
-//! the vendored checkout; nothing here re-implements model semantics.
+//! The extractors are `conseqa::viz`'s own, straight from the library;
+//! nothing here re-implements model semantics.
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 use conseqa::analyzer::{self, Diagnostic, DiagnosticCode, Severity, report};
+use conseqa::parser::yaml::ParseError as YamlParseError;
 use conseqa::spec::Model;
-
-#[path = "../../vendor/conseqa/src/bin/viz/graph.rs"]
-mod graph;
+use conseqa::viz::{graph, transaction_proofs};
 
 /// The page data the viz front end consumes (`window.CONSEQA`).
 #[derive(Serialize)]
@@ -26,6 +26,7 @@ struct PageData<'a> {
     title: &'a str,
     model: &'a Model,
     graph: graph::Graph,
+    transaction_proofs: transaction_proofs::TransactionProofs,
     report: Option<&'a report::ProverReport>,
 }
 
@@ -47,7 +48,9 @@ struct Analysis<'a> {
 struct ParseError {
     message: String,
     /// 1-based line and column as the YAML parser counts them — in
-    /// characters, not bytes — and its 0-based offset, when known.
+    /// characters, not bytes — and its 0-based offset, when known. A
+    /// DSL-version refusal names the whole document, so it carries no
+    /// location at all.
     line: Option<usize>,
     column: Option<usize>,
     index: Option<usize>,
@@ -93,7 +96,12 @@ pub fn analyze(source: &str, title: &str, verify: bool) -> String {
     let model = match conseqa::parser::yaml::parse(source) {
         Ok(model) => model,
         Err(error) => {
-            let location = error.location();
+            // Only a YAML shape error names a place in the document;
+            // the version probe refuses the document as a whole.
+            let location = match &error {
+                YamlParseError::Yaml(yaml) => yaml.location(),
+                _ => None,
+            };
             let analysis = Analysis {
                 page: None,
                 parse_error: Some(ParseError {
@@ -154,6 +162,7 @@ pub fn analyze(source: &str, title: &str, verify: bool) -> String {
             title,
             model: &model,
             graph: graph::extract(&model),
+            transaction_proofs: transaction_proofs::extract(&model),
             report: prover_report.as_ref(),
         }),
         parse_error: None,
@@ -243,10 +252,13 @@ mod tests {
         assert_eq!(value["valid"], true);
         assert_eq!(value["verified"], true);
         assert_eq!(value["page"]["title"], "flash checkout");
-        assert_eq!(value["tally"]["total"], 14);
-        assert_eq!(value["tally"]["proven"], 10);
+        assert_eq!(value["tally"]["total"], 11);
+        assert_eq!(value["tally"]["proven"], 6);
         assert!(value["page"]["graph"]["operations"].as_array().unwrap().len() == 6);
-        assert!(value["page"]["report"]["obligations"].as_array().unwrap().len() == 14);
+        assert!(value["page"]["report"]["obligations"].as_array().unwrap().len() == 11);
+        // The serializability and ordering arguments ride along for the
+        // transaction pages.
+        assert!(!value["page"]["transaction_proofs"].is_null());
         // The checker's notes surface as diagnostics.
         assert!(value["diagnostics"].as_array().unwrap().iter().any(|d| d["phase"] == "verification"));
     }
@@ -257,9 +269,22 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
 
         assert!(value["page"].is_null());
-        assert_eq!(value["parse_error"]["line"], 5);
+        assert_eq!(value["parse_error"]["line"], 6);
         assert_eq!(value["parse_error"]["column"], 15);
         assert!(value["parse_error"]["message"].as_str().unwrap().contains("unknown variant"));
+    }
+
+    #[test]
+    fn refuses_a_model_that_declares_no_dsl_version() {
+        // The two-phase read: the version probe refuses the document by
+        // name before the strict parse ever runs, and the refusal has
+        // no line to point at.
+        let json = analyze("revision: 1\n", "unversioned", false);
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert!(value["page"].is_null());
+        assert!(value["parse_error"]["line"].is_null());
+        assert!(value["parse_error"]["message"].as_str().unwrap().contains("dsl"));
     }
 
     #[test]
@@ -271,12 +296,13 @@ mod tests {
         let template = |prefix: &str| {
             format!(
                 concat!(
+                    "dsl: 4\n",
                     "revision: 1\n",
                     "services: {{}}\n",
                     "schemas: {{}}\n",
                     "data_models: {{}}\n",
-                    "topics: {{\"{}\": {{messages: [], ordering: {{kind: XXX}}, ",
-                    "message_identity: {{kind: unspecified}}}}}}\n",
+                    "topics: {{\"{}\": {{messages: [], ",
+                    "message_identity: {{kind: XXX}}}}}}\n",
                     "state_machines: {{}}\n",
                     "operations: {{}}\n",
                 ),
